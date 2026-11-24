@@ -134,6 +134,25 @@ function validate(text: string): void {
   if (/[\u0000-\u001F\u007F]/.test(text)) {
     throw new Error("entry contains control characters");
   }
+  // Unpaired surrogates cannot be encoded as valid UTF-8, so a lone
+  // high or low surrogate is rejected on its own. The two em dashes in
+  // this vow (U+2014) are ordinary BMP characters, not surrogates, and
+  // pass this check untouched — the check guards the encoding, not the
+  // punctuation.
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = text.charCodeAt(i + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) {
+        throw new Error("entry contains an unpaired high surrogate");
+      }
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      const prev = text.charCodeAt(i - 1);
+      if (!(prev >= 0xd800 && prev <= 0xdbff)) {
+        throw new Error("entry contains an unpaired low surrogate");
+      }
+    }
+  }
 }
 
 function main(): void {
